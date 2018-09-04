@@ -63,24 +63,7 @@ func (s *Server) serveFiles(w http.ResponseWriter, r *http.Request) {
 				a.Close()
 				*/
 				 
- 				    // Get a Buffer to Write To
-				    outFile, err := os.Create(file+`.zip`)
-				    if err != nil {
-					fmt.Println(err)
-				    }
-				    defer outFile.Close()
- 				    // Create a new zip archive.
-				    w := zip.NewWriter(outFile)
- 				    // Add some files to the archive.
-				    addFiles(w, file, "")
- 				    if err != nil {
-					fmt.Println(err)
-				    }
- 				    // Make sure to check the error on Close.
-				    err = w.Close()
-				    if err != nil {
-					fmt.Println(err)
-				    }
+ 				zipit(file, file+'.zip')
 				
 				
 				
@@ -113,37 +96,65 @@ func (s *Server) serveFiles(w http.ResponseWriter, r *http.Request) {
 	s.static.ServeHTTP(w, r)
 }
 
+func zipit(source, target string) error {
+	zipfile, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer zipfile.Close()
 
-func addFiles(w *zip.Writer, basePath, baseInZip string) {
-    // Open the Directory
-    files, err := ioutil.ReadDir(basePath)
-    if err != nil {
-        fmt.Println(err)
-    }
-     for _, file := range files {
-        fmt.Println(basePath + file.Name())
-        if !file.IsDir() {
-            dat, err := ioutil.ReadFile(basePath + file.Name())
-            if err != nil {
-                fmt.Println(err)
-            }
-             // Add some files to the archive.
-            f, err := w.Create(baseInZip + file.Name())
-            if err != nil {
-                fmt.Println(err)
-            }
-            _, err = f.Write(dat)
-            if err != nil {
-                fmt.Println(err)
-            }
-        } else if file.IsDir() {
-             // Recurse
-            newBase := basePath + file.Name() + "/"
-            fmt.Println("Recursing and Adding SubDir: " + file.Name())
-            fmt.Println("Recursing and Adding SubDir: " + newBase)
-             addFiles(w, newBase, file.Name() + "/")
-        }
-    }
+	archive := zip.NewWriter(zipfile)
+	defer archive.Close()
+
+	info, err := os.Stat(source)
+	if err != nil {
+		return nil
+	}
+
+	var baseDir string
+	if info.IsDir() {
+		baseDir = filepath.Base(source)
+	}
+
+	filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		header, err := zip.FileInfoHeader(info)
+		if err != nil {
+			return err
+		}
+
+		if baseDir != "" {
+			header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, source))
+		}
+
+		if info.IsDir() {
+			header.Name += "/"
+		} else {
+			header.Method = zip.Deflate
+		}
+
+		writer, err := archive.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		if info.IsDir() {
+			return nil
+		}
+
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		_, err = io.Copy(writer, file)
+		return err
+	})
+
+	return err
 }
 
 
