@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 	"archive/zip"	
+	"io"
 //	"github.com/jpillora/archive"
 )
 
@@ -52,9 +53,7 @@ func (s *Server) serveFiles(w http.ResponseWriter, r *http.Request) {
 		}
 		switch r.Method {
 		case "GET":
-			if info.IsDir() {
-				 
-				
+			if info.IsDir() { 
 				/*w.Header().Set("Content-Type", "application/zip")
 				w.WriteHeader(200)
 				//write .zip archive directly into response
@@ -62,19 +61,7 @@ func (s *Server) serveFiles(w http.ResponseWriter, r *http.Request) {
 				a.AddDir(file)
 				a.Close()
 				*/
-				 
- 				zipit(file, file+'.zip')
-				
-				
-				
-				
-				
-				
-				
-				
-				
-				
-				
+ 				zipit(file, file+".zip")
 			} else {
 				f, err := os.Open(file)
 				if err != nil {
